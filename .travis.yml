@@ -12,7 +12,6 @@ deploy:
 env:
 - TOXENV=py27
 - TOXENV=flake8
-- TOXENV=pypy
 install: pip install -U tox
 language: python
 python: 2.7
