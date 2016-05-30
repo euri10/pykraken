@@ -21,7 +21,7 @@ python implementation of https://www.kraken.com/ API
 Features
 --------
 
-* TODO
+python implementation of https://www.kraken.com/ API
 
 Credits
 ---------
