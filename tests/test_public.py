@@ -16,7 +16,7 @@ def test_server_time():
     t_compare = t[0]
     print("t_compare: {} utcnow: {}".format(t_compare, utcnow))
     delta = t_compare - utcnow
-    assert abs(delta)<= 6
+    assert abs(delta)<= 10
 
 def test_assets_asset_parameter():
     client = pykraken.Client(API_KEY, PRIVATE_KEY, requests_kwargs=PROXY)
