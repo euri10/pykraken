@@ -15,6 +15,7 @@ env:
   - secure: VWteI3sPRYSdCKp1SVX1xpy/qs8hAzCHT1Rb/04IdnWuHRt3D6MyhGcp5wR0ihsrUq/jnHqwKphx9pToRvND+uqz5ivKh5m/3TtFGUUm8wWRk8LVv9VOejLdGY37N3eg+g2sBMn2MIE1uTfsZwNVJ88wrt2lehhcvZhMUQcmWz06Z/26XPoQcnBaIOqX3ar3TPfkkustBnJJtVhoh6vSHgathH0wmq6QRQ+K/sThSHH7vF5aGMkauq8NYVpMzQUARZajtYKoZ85sOIjbn4FAH0b4TQlvfEl/xmB2shY2YsOmFwjMXELIw2tjtBffIWR+PNA2Rl8vYOrqhE+IGa2p7DRLoxRVS/GLgm84jT+Z/DtuFR8TLUkVlG1/LUpkLNwWmBpE+tkdw1dZ1UQNfNx/plsyqpUou4uTCDKeu6rlKUw/VFH+0ECut+cMECnAT0PVMTojQSuxoLyKNSdyi/MJYSoPnUdtW87hFTKpdk2PqWIjeLOaMC5KigvUeEFeOxGNg3IkSb5mW+0cVdX8rVJGRbDofDHXqWAqVYR68n7zxiOI6eXut1hzyKJAWoqzB3G3KAKePY9C+iYHSqb97zuQkkdBHoW6lY3KpKPbxV3/ZBjAklhXaYc7SnJBNiOu7FWgqQME5Afv6aYkFmoPiaCtz/e4gA+zauAQfp7gVNKfJ5c=
   matrix:
   - TOXENV=py27
+  - TOXENV=docs
 install: pip install -U tox
 language: python
 python: 2.7
