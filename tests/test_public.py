@@ -1,4 +1,7 @@
 import time
+
+import datetime
+
 import pykraken
 import pytest
 from flaky import flaky
@@ -9,14 +12,16 @@ def test_no_api_key():
         client = pykraken.Client()
 
 
-@flaky(max_runs=3)
+@flaky(max_runs=10, min_passes=2)
 def test_server_time(client):
     utcnow = int(time.time())
     t = client.kpublic_time()
-    # t_compare = datetime.strptime(t[1], '%a, %d %b %y %H:%M:%S +0000')
+    print(t)
+    print(datetime.datetime.strptime(t[1], '%a, %d %b %y %H:%M:%S +0000'))
     t_compare = t[0]
     print("t_compare: {} utcnow: {}".format(t_compare, utcnow))
     delta = t_compare - utcnow
+    print(delta)
     assert abs(delta) <= 10
 
 
