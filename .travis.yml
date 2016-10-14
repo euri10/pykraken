@@ -14,6 +14,7 @@ env:
   - secure: QrdaSNv47kjT9xBOVD1Wb4faMHQ2WTc+dR0a+6rV8vdxfk+gLoKY4EUN0MeZXGQ1aha9ntbsg/GVKm4FdNklq4ti9iJmV79YFm9UIywOkqnUt0SJAWFkhaI2gPvoocMvBPD1WFm8/e196fnxx+5twjsMMVL51favRSus6YIyFv4jkBpOGv+cT1TivHSX2OGUGLXiTidbtWyOqBQfnS6R9xNEw4jXfL10BevYLE0Mom+b7KC87zpFSGlRZt2xjS6V74Yh5boO5C1GHdbFk2WzDAMXloHChkqcNp59L7ybn2AoSa8ssgpV/USyaUBOFWw8hqXMhY1GKeHlIEUjCtP6kO+bv6P06yiGeMiB+cNBNrP4Voz/YvsfdcP49X5IM4L2mB9RCHkmfvE/z6GsgWUMpsP9/Tum3vPbikV1FsoicnGQoIMqiz8ugASrb+Rf1lqFF74/x8yTff0WSEL6dIsga0qTnLG/n/TCIvwjCCVQlqb4Wib99QLUARATzJ+QnKusU6+6PEWQ4kmi8Xm74L017k5g3+4AeW6pTthkMiw9KP4OKbLnYgqTEonWyEOjLJRbt5yTOrcKai/ounqLGpfaddapXNv6VL36HzK3h96jC+2zLMX4RQtTsTOkZgRK7JUtljMsMdvUo3ZXd3GH9JM0g2JkGTN4kj7CYvtjmvLnh/U=
   matrix:
   - TOXENV=py35
+  - TOXENV = flake8
   - TOXENV=docs
 install: pip install -U tox
 language: python
