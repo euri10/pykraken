@@ -14,22 +14,31 @@ import random
 import time
 
 import pykraken
-from .exceptions import _RetriableRequest, ApiError
-
+from pykraken.convert import commasep, parseOTime
+from .exceptions import _RetriableRequest, ApiError, RequiredParameterError, \
+    BadParamterError
 
 from urllib.parse import urlencode
 
-
-_USER_AGENT = "pykraken {} (https://github.com/euri10/pykraken)".format(pykraken.__version__)
+_USER_AGENT = "pykraken {} (https://github.com/euri10/pykraken)".format(
+    pykraken.__version__)
 _DEFAULT_BASE_URL = "https://api.kraken.com"
 
 _RETRIABLE_STATUSES = set([500, 503, 504])
+
+ORDER_TYPES_0 = ['market']
+ORDER_TYPES_1 = ['limit', 'stop-loss', 'take-profit', 'trailing-stop']
+ORDER_TYPES_2 = ['stop-loss-profit', 'stop-loss-profit-limit',
+                 'stop-loss-limit', 'take-profit-limit',
+                 'trailing-stop-limit', 'stop-loss-and-limit']
+ORDER_FLAGS = ['viqc', 'fcib', 'fciq', 'nompp', 'post']
 
 
 class Client(object):
     """Performs requests to the kraken API."""
 
-    def __init__(self, key=None, private_key=None, timeout=None, connect_timeout=None, read_timeout=None,
+    def __init__(self, key=None, private_key=None, timeout=None,
+                 connect_timeout=None, read_timeout=None,
                  retry_timeout=60, requests_kwargs=None,
                  queries_per_second=10):
         """
@@ -123,7 +132,9 @@ class Client(object):
             time.sleep(delay_seconds * (random.random() + 0.5))
 
         # Unicode-objects must be encoded before hashing
-        # "API-Sign = Message signature using HMAC-SHA512 of (URI path + SHA256(nonce + POST data)) and base64 decoded secret API key"
+        # "API-Sign = Message signature using HMAC-SHA512 of
+        # (URI path + SHA256(nonce + POST data))
+        # and base64 decoded secret API key"
         params['nonce'] = int(1000 * time.time())
 
         postdata = urlencode(params)
@@ -132,11 +143,13 @@ class Client(object):
         encoded = (str(params['nonce']) + postdata).encode()
         message = url.encode() + hashlib.sha256(encoded).digest()
 
-        signature = hmac.new(base64.b64decode(self.private_key), message, hashlib.sha512)
+        signature = hmac.new(base64.b64decode(self.private_key), message,
+                             hashlib.sha512)
         sigdigest = base64.b64encode(signature.digest())
 
         self.requests_kwargs.update({
-            "headers": {"User-Agent": _USER_AGENT, "API-Key": self.key, "API-Sign": sigdigest.decode()},
+            "headers": {"User-Agent": _USER_AGENT, "API-Key": self.key,
+                        "API-Sign": sigdigest.decode()},
             "timeout": self.timeout,
             "verify": True,  # NOTE(cbro): verify SSL certs.
         })
@@ -153,10 +166,12 @@ class Client(object):
 
         if resp.status_code in _RETRIABLE_STATUSES:
             # Retry request.
-            return self._post(url, params, first_request_time, retry_counter + 1,
+            return self._post(url, params, first_request_time,
+                              retry_counter + 1,
                               base_url, accepts_clientid, extract_body)
 
-        # Check if the time of the nth previous query (where n is queries_per_second)
+        # Check if the time of the nth previous query
+        # (where n is queries_per_second)
         # is under a second ago - if so, sleep for the difference.
         if self.sent_times and len(self.sent_times) == self.queries_per_second:
             elapsed_since_earliest = time.time() - self.sent_times[0]
@@ -172,7 +187,8 @@ class Client(object):
             return result
         except _RetriableRequest:
             # Retry request.
-            return self._post(url, params, first_request_time, retry_counter + 1,
+            return self._post(url, params, first_request_time,
+                              retry_counter + 1,
                               base_url, accepts_clientid, extract_body)
 
     def _get_body(self, resp):
@@ -186,53 +202,407 @@ class Client(object):
         else:
             return body
 
-# public market data https://www.kraken.com/help/api#public-market-data
-from .kpublic import kpublic_time
-from .kpublic import kpublic_assets
-from .kpublic import kpublic_assetpairs
-from .kpublic import kpublic_ticker
-from .kpublic import kpublic_ohlc
-from .kpublic import kpublic_depth
-from .kpublic import kpublic_trades
-from .kpublic import kpublic_spread
+    def kprivate_balance(self):
+        c = self._post("/0/private/Balance")
+        return c['result']
 
-# private user data https://www.kraken.com/help/api#private-user-data
-from .kprivate import kprivate_balance
-from .kprivate import kprivate_tradebalance
-from .kprivate import kprivate_openorders
-from .kprivate import kprivate_closedorders
-from .kprivate import kprivate_tradeshistory
-from .kprivate import kprivate_querytrades
-from .kprivate import kprivate_openpositions
-from .kprivate import kprivate_ledgers
-from .kprivate import kprivate_queryledgers
-from .kprivate import kprivate_tradevolume
+    def kprivate_tradebalance(self, aclass='currency', asset='ZUSD'):
+        params = {}
+        if aclass:
+            params['aclass'] = aclass
+        if asset:
+            params['asset'] = asset
+        c = self._post("/0/private/TradeBalance", params)
+        return c['result']
 
-# private user trading https://www.kraken.com/help/api#private-user-trading
-from .kprivate import kprivate_addorder
-from .kprivate import kprivate_cancelorder
+    def kprivate_openorders(self, trades=False, userref=None):
+        params = {}
+        if trades:
+            params['trades'] = trades
+        if userref:
+            params['userref'] = userref
+        c = self._post("/0/private/OpenOrders", params)
+        return c['result']
 
-Client.kpublic_time = kpublic_time
-Client.kpublic_assets = kpublic_assets
-Client.kpublic_assetpairs = kpublic_assetpairs
-Client.kpublic_ticker = kpublic_ticker
-Client.kpublic_ohlc = kpublic_ohlc
-Client.kpublic_depth = kpublic_depth
-Client.kpublic_trades = kpublic_trades
-Client.kpublic_spread = kpublic_spread
+    def kprivate_closedorders(self, trades=False, userref=None, start=None,
+                              end=None, ofs=None, closetime='both'):
+        params = {}
+        if trades:
+            params['trades'] = trades
+        if userref:
+            params['userref'] = userref
+        if start:
+            params['start'] = start
+        if end:
+            params['end'] = end
+        if ofs:
+            params['ofs'] = ofs
+        if closetime:
+            params['closetime'] = closetime
 
-Client.kprivate_balance = kprivate_balance
-Client.kprivate_tradebalance = kprivate_tradebalance
-Client.kprivate_openorders = kprivate_openorders
-Client.kprivate_closedorders = kprivate_closedorders
-Client.kprivate_tradeshistory = kprivate_tradeshistory
-Client.kprivate_querytrades = kprivate_querytrades
-Client.kprivate_openpositions = kprivate_openpositions
-Client.kprivate_ledgers = kprivate_ledgers
-Client.kprivate_queryledgers = kprivate_queryledgers
-Client.kprivate_tradevolume = kprivate_tradevolume
-Client.kprivate_addorder = kprivate_addorder
-Client.kprivate_cancelorder = kprivate_cancelorder
+        c = self._post("/0/private/ClosedOrders", params)
+        return c['result']
+
+    def kprivate_queryorders(self, trades=False, userref=None, txid=None):
+        params = {}
+        if trades:
+            params['trades'] = trades
+        if userref:
+            params['userref'] = userref
+        if txid:
+            params['txid'] = commasep(txid)
+
+        c = self._post("/0/private/QueryOrders", params)
+        return c['result']
+
+    def kprivate_tradeshistory(self, typet=None, trades=False, start=None,
+                               end=None, ofs=None):
+        params = {}
+        if typet and typet in ['all', 'any position', 'closed position',
+                               'closing position', 'no position']:
+            # using typet variable as type is reserved,
+            # but it need to be type in the params dictionnary
+            params['type'] = typet
+        if trades:
+            params['trades'] = trades
+        if start:
+            params['start'] = start
+        if end:
+            params['end'] = end
+        if ofs:
+            params['ofs'] = ofs
+
+        c = self._post("/0/private/TradesHistory", params)
+        return c['result']
+
+    def kprivate_querytrades(self, txid=None, trades=False):
+        params = {}
+        if txid and len(txid) <= 20 and isinstance(txid, list):
+            params['txid'] = commasep(txid)
+        else:
+            raise pykraken.exceptions.RequiredParameterError('no txid found')
+        if trades:
+            params['trades'] = trades
+        c = self._post("/0/private/QueryTrades", params)
+        return c['result']
+
+    def kprivate_openpositions(self, txid=None, docalcs=False):
+        params = {}
+        if txid and isinstance(txid, list):
+            params['txid'] = commasep(txid)
+        if docalcs:
+            params['docalcs'] = docalcs
+
+        c = self._post("/0/private/OpenPositions", params)
+        return c['result']
+
+    def kprivate_ledgers(self, aclass='currency', asset='all', typet='all',
+                         start=None, end=None, ofs=None):
+        params = {}
+        if aclass:
+            params['aclass'] = aclass
+        if asset:
+            params['asset'] = asset
+        if typet:
+            params['type'] = typet
+        if start:
+            params['start'] = start
+        if end:
+            params['end'] = end
+        if ofs:
+            params['ofs'] = ofs
+
+        c = self._post("/0/private/Ledgers")
+        return c['result']
+
+    def kprivate_queryledgers(self, id=None):
+        params = {}
+        if id and len(id) <= 20 and isinstance(id, list):
+            params['id'] = commasep(id)
+        else:
+            raise pykraken.exceptions.BadParamterError('error in ids')
+        c = self._post("/0/private/QueryLedgers", params)
+        return c['result']
+
+    def kprivate_tradevolume(self, pair=None, feeinfo=None):
+        params = {}
+        if pair:
+            params['pair'] = commasep(pair)
+        if feeinfo:
+            params['fee-info'] = feeinfo
+
+        c = self._post("/0/private/TradeVolume")
+        return c['result']
+
+    def kprivate_addorder(self, pair=None, typeo=None, ordertype=None,
+                          price=None,
+                          price2=None, volume=None,
+                          leverage=None, oflags=None,
+                          starttm=None, expiretm=None, userref=None,
+                          validate=None):
+        params = {}
+        if pair:
+            params['pair'] = pair
+        else:
+            raise RequiredParameterError('pair')
+        if typeo and typeo in ['buy', 'sell']:
+            params['type'] = typeo
+        else:
+            raise RequiredParameterError('typeo')
+        if ordertype and ordertype in (
+                        ORDER_TYPES_0 + ORDER_TYPES_1 + ORDER_TYPES_2):
+            params['ordertype'] = ordertype
+        else:
+            raise RequiredParameterError('ordertype')
+
+        if ordertype in ORDER_TYPES_0:
+            if price:
+                raise pykraken.exceptions.BadParamterError(
+                    'if price is set, ordertype cant be at market')
+        elif ordertype in ORDER_TYPES_1:
+            if price:
+                params['price'] = price
+            else:
+                raise pykraken.exceptions.RequiredParameterError(
+                    'price required for this order type: {}'.format(ordertype))
+        elif ordertype in ORDER_TYPES_2:
+            if price and price2:
+                params['price'] = price
+                params['price2'] = price2
+            else:
+                raise pykraken.exceptions.RequiredParameterError(
+                    'price and price2 required for this order type: {}'.format(
+                        ordertype))
+        else:
+            raise pykraken.exceptions.BadParamterError(
+                'ordertype: {} not allowed, it should be in {} or {} or {}'.format(
+                    ordertype, ORDER_TYPES_0, ORDER_TYPES_1,
+                    ORDER_TYPES_2))
+        if volume:
+            params['volume'] = volume
+        else:
+            raise pykraken.exceptions.RequiredParameterError(
+                'volume is required')
+
+        if leverage:
+            params['leverage'] = leverage
+
+        if oflags:
+            params['oflags'] = commasep(oflags)
+        if starttm:
+            params['starttm'] = parseOTime(starttm)
+        if expiretm:
+            params['expiretm'] = parseOTime(expiretm)
+        if userref:
+            params['userref'] = userref
+        if validate:
+            params['validate'] = validate
+
+        c = self._post("/0/private/AddOrder", params)
+        return c['result']
+
+    def kprivate_cancelorder(self, txid=None):
+        params = {}
+        if txid:
+            params['txid'] = txid
+        else:
+            raise pykraken.exceptions.RequiredParameterError(
+                'transaction id required')
+
+        c = self._post("/0/private/CancelOrder", params)
+        return c['result']
+
+    def kprivate_depositmethods():
+        pass
+
+    def kpublic_time(self):
+        """
+        Returns the servers' time
+        :param client: the client
+        :return: a tuple (unixtime =  as unix timestamp, rfc1123 = as RFC 1123 time format)
+        """
+        c = self._post("/0/public/Time")
+        return c['result']['unixtime'], c['result']['rfc1123']
+
+    def kpublic_assets(self, info='info', aclass=None, asset=None):
+        """
+        Returns array of asset names and their info
+        :param client: the client
+        :param info: info to retrieve (optional), 'info' by default (doc is weird
+        about that, optionnal but only one option...)
+        :param aclass: asset class (optional), 'currency' is the default (same
+        weirdness in doc)
+        :param asset: comma delimited list of assets to get info on (optional.
+        default = all for given asset class)
+        :return: <asset_name> = asset name
+                    altname = alternate name
+                    aclass = asset class
+                    decimals = scaling decimal places for record keeping
+                    display_decimals = scaling decimal places for output display
+        """
+        params = {}
+        if info:
+            params['info'] = info
+        if asset:
+            params['asset'] = commasep(asset)
+        if aclass:
+            if aclass is not "currency":
+                raise BadParamterError('aclass should be currency')
+        c = self._post("/0/public/Assets", params)
+        return c['result']
+
+    def kpublic_assetpairs(self, info='info', pair=None):
+        """
+        Returns an array of pair names and some info about it
+        :param client: the client
+        :param info: pinfo to retrieve (optional), 'info' by default (doc is weird
+        about that, optionnal but only one option...)
+        :param pair:  comma delimited list of asset pairs to get info on (optional.
+         default = all)
+        :return: <pair_name> = pair name
+            altname = alternate pair name
+            aclass_base = asset class of base component
+            base = asset id of base component
+            aclass_quote = asset class of quote component
+            quote = asset id of quote component
+            lot = volume lot size
+            pair_decimals = scaling decimal places for pair
+            lot_decimals = scaling decimal places for volume
+            lot_multiplier = amount to multiply lot volume by to get currency volume
+            leverage_buy = array of leverage amounts available when buying
+            leverage_sell = array of leverage amounts available when selling
+            fees = fee schedule array in [volume, percent fee] tuples
+            fees_maker = maker fee schedule array in [volume, percent fee] tuples
+            (if on maker/taker)
+            fee_volume_currency = volume discount currency
+            margin_call = margin call level
+            margin_stop = stop-out/liquidation margin level
+        """
+        params = {}
+        if info not in ['info', 'leverage', 'fees', 'margin']:
+            raise pykraken.exceptions.BadParamterError()
+        else:
+            params['info'] = info
+        if pair:
+            params['pair'] = commasep(pair)
+
+        c = self._post("/0/public/AssetPairs", params)
+        return c['result']
+
+    def kpublic_ticker(self, pair=None):
+        """
+        Returns an array of pair names and their ticker info
+        :param client: the client
+        :param pair: comma delimited list of asset pairs to get info on
+        :return: <pair_name> = pair name
+            a = ask array(<price>, <whole lot volume>, <lot volume>),
+            b = bid array(<price>, <whole lot volume>, <lot volume>),
+            c = last trade closed array(<price>, <lot volume>),
+            v = volume array(<today>, <last 24 hours>),
+            p = volume weighted average price array(<today>, <last 24 hours>),
+            t = number of trades array(<today>, <last 24 hours>),
+            l = low array(<today>, <last 24 hours>),
+            h = high array(<today>, <last 24 hours>),
+            o = today's opening price
+        """
+        params = {}
+        if pair:
+            params['pair'] = commasep(pair)
+        else:
+            raise pykraken.exceptions.BadParamterError()
+        c = self._post("/0/public/Ticker", params)
+        return c['result']
+
+    def kpublic_ohlc(self, pair=None, interval=1, since=None):
+        """
+        Returns array of pair name and OHLC data
+        :param client: the client
+        :param pair: asset pair to get OHLC data for
+        :param interval: time frame interval in minutes (optional):
+        1 (default), 5, 15, 30, 60, 240, 1440, 10080, 21600
+        :param since: return committed OHLC data since given id (optional.
+        exclusive)
+        :return: <pair_name> = pair name
+                array of array entries
+                (<time>, <open>, <high>, <low>, <close>, <vwap>, <volume>, <count>)
+                last = id to be used as since when polling for new,
+                committed OHLC data
+        """
+        params = {}
+        if pair:
+            params['pair'] = commasep(pair)
+        else:
+            raise pykraken.exceptions.BadParamterError()
+        if interval:
+            params['interval'] = interval
+        if since:
+            params['since'] = since
+        c = self._post("/0/public/OHLC", params)
+        return c['result']
+
+    def kpublic_depth(self, pair=None, count=None):
+        """
+        Returns array of pair name and market depth
+        :param client: the client
+        :param pair: asset pair to get market depth for
+        :param count: maximum number of asks/bids (optional)
+        :return: <pair_name> = pair name
+            asks = ask side array of array entries(<price>, <volume>, <timestamp>)
+            bids = bid side array of array entries(<price>, <volume>, <timestamp>)
+        """
+        params = {}
+        if pair:
+            params['pair'] = commasep(pair)
+        else:
+            raise pykraken.exceptions.BadParamterError()
+        if count:
+            params['count'] = count
+
+        c = self._post("/0/public/Depth", params)
+        return c['result']
+
+    def kpublic_trades(self, pair=None, since=None):
+        """
+        Returns an array of pair name and recent trade data
+        :param client: the client
+        :param pair: asset pair to get trade data for
+        :param since: return trade data since given id (optional.  exclusive)
+        :return: <pair_name> = pair name
+        array of array entries(<price>, <volume>, <time>, <buy/sell>,
+        <market/limit>, <miscellaneous>)
+            last = id to be used as since when polling for new trade data
+        """
+        params = {}
+        if pair:
+            params['pair'] = commasep(pair)
+        else:
+            raise pykraken.exceptions.BadParamterError()
+        if since:
+            params['count'] = since
+
+        c = self._post("/0/public/Trades", params)
+        return c['result']
+
+    def kpublic_spread(self, pair=None, since=None):
+        """
+        Returns array of pair name and recent spread data
+        :param client: the client
+        :param pair: asset pair to get spread data for
+        :param since: return spread data since given id (optional.  inclusive)
+        :return: <pair_name> = pair name
+            array of array entries(<time>, <bid>, <ask>)
+            last = id to be used as since when polling for new spread data
+        """
+        params = {}
+        if pair:
+            params['pair'] = commasep(pair)
+        else:
+            raise pykraken.exceptions.BadParamterError()
+        if since:
+            params['count'] = since
+
+        c = self._post("/0/public/Spread", params)
+        return c['result']
 
 
 def sign_hmac(secret, payload):
@@ -251,6 +621,7 @@ def sign_hmac(secret, payload):
     sig = hmac.new(base64.urlsafe_b64decode(secret), payload, hashlib.sha1)
     out = base64.urlsafe_b64encode(sig.digest())
     return out.decode('utf-8')
+
 #
 #
 # def urlencode_params(params):
