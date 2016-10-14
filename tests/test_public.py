@@ -1,6 +1,7 @@
 import time
 import pykraken
 import pytest
+from flaky import flaky
 
 
 def test_no_api_key():
@@ -8,6 +9,7 @@ def test_no_api_key():
         client = pykraken.Client()
 
 
+@flaky(max_runs=3)
 def test_server_time(client):
     utcnow = int(time.time())
     t = client.kpublic_time()
