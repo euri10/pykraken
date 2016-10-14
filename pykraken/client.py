@@ -16,10 +16,9 @@ import time
 import pykraken
 from .exceptions import _RetriableRequest, ApiError
 
-try:  # Python 3
-    from urllib.parse import urlencode
-except ImportError:  # Python 2
-    from urllib import urlencode
+
+from urllib.parse import urlencode
+
 
 _USER_AGENT = "pykraken {} (https://github.com/euri10/pykraken)".format(pykraken.__version__)
 _DEFAULT_BASE_URL = "https://api.kraken.com"
@@ -252,44 +251,44 @@ def sign_hmac(secret, payload):
     sig = hmac.new(base64.urlsafe_b64decode(secret), payload, hashlib.sha1)
     out = base64.urlsafe_b64encode(sig.digest())
     return out.decode('utf-8')
-
-
-def urlencode_params(params):
-    """URL encodes the parameters.
-
-    :param params: The parameters
-    :type params: list of key/value tuples.
-
-    :rtype: string
-    """
-    # urlencode does not handle unicode strings in Python 2.
-    # Firstly, normalize the values so they get encoded correctly.
-    params = [(key, normalize_for_urlencode(val)) for key, val in params]
-    # Secondly, unquote unreserved chars which are incorrectly quoted
-    # by urllib.urlencode, causing invalid auth signatures. See GH #72
-    # for more info.
-    return requests.utils.unquote_unreserved(urlencode(params))
-
-
-try:
-    unicode
-
-
-    # NOTE(cbro): `unicode` was removed in Python 3. In Python 3, NameError is
-    # raised here, and caught below.
-
-    def normalize_for_urlencode(value):
-        """(Python 2) Converts the value to a `str` (raw bytes)."""
-        if isinstance(value, unicode):
-            return value.encode('utf8')
-
-        if isinstance(value, str):
-            return value
-
-        return normalize_for_urlencode(str(value))
-
-except NameError:
-    def normalize_for_urlencode(value):
-        """(Python 3) No-op."""
-        # urlencode in Python 3 handles all the types we are passing it.
-        return value
+#
+#
+# def urlencode_params(params):
+#     """URL encodes the parameters.
+#
+#     :param params: The parameters
+#     :type params: list of key/value tuples.
+#
+#     :rtype: string
+#     """
+#     # urlencode does not handle unicode strings in Python 2.
+#     # Firstly, normalize the values so they get encoded correctly.
+#     params = [(key, normalize_for_urlencode(val)) for key, val in params]
+#     # Secondly, unquote unreserved chars which are incorrectly quoted
+#     # by urllib.urlencode, causing invalid auth signatures. See GH #72
+#     # for more info.
+#     return requests.utils.unquote_unreserved(urlencode(params))
+#
+#
+# try:
+#     unicode
+#
+#
+#     # NOTE(cbro): `unicode` was removed in Python 3. In Python 3, NameError is
+#     # raised here, and caught below.
+#
+#     def normalize_for_urlencode(value):
+#         """(Python 2) Converts the value to a `str` (raw bytes)."""
+#         if isinstance(value, unicode):
+#             return value.encode('utf8')
+#
+#         if isinstance(value, str):
+#             return value
+#
+#         return normalize_for_urlencode(str(value))
+#
+# except NameError:
+#     def normalize_for_urlencode(value):
+#         """(Python 3) No-op."""
+#         # urlencode in Python 3 handles all the types we are passing it.
+#         return value

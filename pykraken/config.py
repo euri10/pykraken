@@ -1,5 +1,4 @@
 import os
 
-PROXY = None
-API_KEY = os.environ['K_API_KEY']
-PRIVATE_KEY = os.environ['K_PRIVATE_KEY']
+API_KEY = os.environ.get('K_API_KEY')
+PRIVATE_KEY = os.environ.get('K_PRIVATE_KEY')
